@@ -1,0 +1,11 @@
+SampleID,Leaf_Status,Relabun,SE
+ASV_6_Marinobacter,Healthy,1.271433807,0.499850862
+ASV_6_Marinobacter,Unhealthy,7.649868087,1.171889677
+ASV_129_Rhodobacteraceae,Healthy,0,0
+ASV_129_Rhodobacteraceae,Unhealthy,0.784492211,0.154156254
+ASV_289_Reinekea,Healthy,0.370725727,0.120268251
+ASV_289_Reinekea,Unhealthy,0,0
+ASV_279_Flavobacteriaceae,Healthy,0.554248488,0.205821121
+ASV_279_Flavobacteriaceae,Unhealthy,0,0
+ASV_194_Hyphomonas,Healthy,0.006787965,0.004242261
+ASV_194_Hyphomonas,Unhealthy,0.552903719,0.157746361

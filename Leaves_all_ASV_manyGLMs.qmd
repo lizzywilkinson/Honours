@@ -1,0 +1,156 @@
+---
+title: "Leaves_all_ASV_manyGLMs"
+format: html
+editor: visual
+---
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(car)
+library(DHARMa)
+library(vegan)
+library(magrittr)
+library(mvabund)
+library(moments)
+library(emmeans)
+```
+
+#Import data 
+```{r}
+Leaves <- ASV_deseq2_leaves
+Leaves.matrix <- Leaves[4:1721  ] # just the community data
+Leaves.factors <- Leaves[1:3] # just the factors
+Leaves.factors$Leaf_status <- as.factor(Leaves.factors$Leaf_status)
+
+Leaves.mva=mvabund(Leaves.matrix) # makes an mvabund object with the bacterial data (the transposed matrix of RAW COUNTS)
+```
+
+# Initial model fitting
+```{r}
+#Leaves.mva[Leaves.mva>0] <-1 #turns into P/A
+
+# Plot the data - look at the differences between ASVs between samples 
+plot(Leaves.mva ~ Leaves.factors$Leaf_status, type="bx", cex.axis=0.55, legend=F) # Box plot 
+#looks like the most abundant ASVS do have differences 
+
+# Lets fit the model
+nb.1 = manyglm(Leaves.mva ~ Leaf_status, data=Leaves.factors)
+#this uses the default'negative biom' model. dont' need 'counts' as a offset bc we are using deseq2 data
+
+# Check the model fitting plotting the residuals
+plot(nb.1, n.vars=15) 
+```
+
+# PERMANOVA
+```{r}
+# Let run the statistical test. n=1000 takes ages so dont need to rerun it, just upload the file 
+dat.aov <- readRDS("leaves.dat.aov.rds")
+
+# Get the output of the test
+dat.aov$table # multivariate table
+#there is a marginal signif difference - we knew this from our PERMANOVA in primer. we don't need this table. 
+#we COULD use this table instead of the PERMANOVA in primer, but i like the PRIMER one 
+
+dat.aov$uni.test # univariate test statistics
+# Note that the output is quite horrible here. dont need to look at it 
+
+dat.aov$uni.p # univariate adjusted p values, note we are interested in row 2
+# Note that the output is quite horrible here. dont need to look at it
+```
+
+# Processing PERMANOVA results
+```{r}
+# We can use code to ask: Is any of these significantly different? (i.e. p<0.05)
+any(dat.aov$uni.p[2,]<0.5) 
+# Yes, some bacterial classes differed between species
+
+# We can visualise this by plotting those p-values from smaller to larger
+plot(sort(dat.aov$uni.p[2,]), main="Sorted univariate P values")
+abline(h=0.05, lty=2, col="red") # line at the 0.05 cut-off
+
+# Who are these that are different? 
+diffs=which(dat.aov$uni.p[2,]<0.05) # you could also ask for < 0.06 so we catch the group slightly above 0.05
+diffs
+```
+
+#Extract p values
+```{r}
+#Extract the test statistic and p values for each of these ASVs
+stat_dat_aov <- t(dat.aov$uni.test) # univariate test statistics
+p_dat_aov <- t(dat.aov$uni.p) # univariate test statistics; p-values
+
+# Convert the matrix to a dataframe
+stat_dat_aov_df <- as.data.frame(stat_dat_aov)
+p_dat_aov_df <- as.data.frame(p_dat_aov)
+```
+
+# Save data
+```{r}
+# Save the dataframe as a CSV file
+write.csv(stat_dat_aov_df, "C:/Users/z3532738/OneDrive - UNSW/UNSW ra/Student Data/Lizzy/Bioinformatics/Post_processing_outputs/R graphs/stat_leaves.csv")
+write.csv(p_dat_aov_df, "C:/Users/z3532738/OneDrive - UNSW/UNSW ra/Student Data/Lizzy/Bioinformatics/Post_processing_outputs/R graphs/p_leaves.csv")
+#combine these two excel files into one, and then sort by "p value". 
+#copy paste the ASVs for significant values (p<0.05) into a table and put that table in your thesis 
+#this file is called pvalues_leaves
+```
+
+#Start to build plot
+```{r}
+# We can then plot the abundances of only these groups. 
+palette('default') # mvabund ruins your colour palette, so reset
+plot(Leaves.mva ~ Leaves.factors$Leaf_status, var.subset=diffs, type="bx", cex.axis=0.55, legend=F)
+
+
+#import data with ASVS as rows 
+leaves_manyglm <- read.csv("leaves.manyglm.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#Change asv table from wide to long format with column names Sequence, ASV, SampleID and Abundance (in that order)
+asv_table_ra_long <- leaves_manyglm %>% 
+  pivot_longer(cols = -1, # Pivot all columns except the first one (ID column = ASV)
+               names_to = "Sample", # New column for the names of the original columns
+               values_to = "Relabun")
+```
+
+# Make many GLMs
+```{r}
+leaves_manyglm <- read.csv("leaves_long_edited.csv")
+mean_relabun <- leaves_manyglm %>%
+  group_by(SampleID, Leaf_status) %>%
+  summarise(Mean_Relabun = mean(Relabun, na.rm = TRUE),SEM = sd(Relabun, na.rm = TRUE) / sqrt(n()))
+
+#take the ASVS you want to plot in excel and turn into csv file
+all.abun.plot <- read.csv("all.abundance.plot.csv")
+all.abun.plot$Leaf_Status <- factor(all.abun.plot$Leaf_Status, levels = c("Healthy", "Unhealthy"), labels = c("Healthy", "Unhealthy"))
+```
+
+# Plot high abundance ASVs
+```{r}
+# Setting colors
+mycols2 <- c("Healthy" = "#65B540", "Unhealthy" = "#654321")
+
+###input this graph into a nice format with ggplot2
+leaf1 <- ggplot(all.abun.plot, aes(x = SampleID, y = Relabun, fill = Leaf_Status)) +
+  geom_bar(stat = "identity", width = 0.9, position = position_dodge(width = -0.8), alpha = 0.8) +
+  xlab("") + ylab("") +
+  scale_fill_manual(values = mycols2) +
+  geom_errorbar(aes(ymin = Relabun - SE, ymax = Relabun + SE), width = 0.4,
+                position = position_dodge(width = -0.8)) +
+  labs(title = "A)",fill = "Leaf Status") +  # Change legend title here
+  theme(axis.text.y = element_text(size = 12), 
+        axis.title.y = element_text(size = 12, face = 'bold'),
+        axis.text.x = element_text(size = 14), 
+        axis.title.x = element_text(size = 12, face = 'bold'),
+        legend.position = "none", 
+        legend.direction = "horizontal",
+        legend.title =  element_text(size = 12),  # Style the legend title, 
+        legend.text = element_text(size = 11),
+        panel.background = element_rect(fill = "white", colour = "black"),
+        strip.text = element_text(size = 15, face = "bold")) +
+  coord_flip()  # Flip coordinates for horizontal bars
+
+leaf1 
+
+ggarrange(leaf1/leaf2
+```
+
