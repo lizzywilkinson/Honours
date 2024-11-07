@@ -1,0 +1,31 @@
+SampleID,Salinity,Mean_Relabun,SEM
+ASV_9_Caldithrix,Ambient,0,0
+ASV_9_Caldithrix,Low,1.607646251,0.452429284
+ASV_9_Caldithrix,Medium,0.08074505,0.034067175
+ASV_12_Gammaproteobacteria,Ambient,0,0
+ASV_12_Gammaproteobacteria,Low,0.416747661,0.106057687
+ASV_12_Gammaproteobacteria,Medium,0,0
+ASV_20_Geminicoccaceae,Ambient,0,0
+ASV_20_Geminicoccaceae,Low,0.33251977,0.078217709
+ASV_20_Geminicoccaceae,Medium,0,0
+ASV_25_Spirochaetia,Ambient,0.318686821,0.110353813
+ASV_25_Spirochaetia,Low,0,0
+ASV_25_Spirochaetia,Medium,0.001296972,0.001296972
+ASV_36_Desulfosarcinaceae,Ambient,0,0
+ASV_36_Desulfosarcinaceae,Low,0.393222303,0.077350936
+ASV_36_Desulfosarcinaceae,Medium,0,0
+ASV_51_UBA4055,Ambient,0,0
+ASV_51_UBA4055,Low,0.12028621,0.021932151
+ASV_51_UBA4055,Medium,0,0
+ASV_284_Unidentified Polyangia,Ambient,0,0
+ASV_284_Unidentified Polyangia,Low,0.419740532,0.127417844
+ASV_284_Unidentified Polyangia,Medium,0,0
+ASV_302_Bacteroidales,Ambient,0,0
+ASV_302_Bacteroidales,Low,0.288095193,0.091602984
+ASV_302_Bacteroidales,Medium,0,0
+ASV_445_Acidobacteriota,Ambient,0,0
+ASV_445_Acidobacteriota,Low,0.180719943,0.050469598
+ASV_445_Acidobacteriota,Medium,0,0
+ASV_651_Acidimicrobiales,Ambient,0,0
+ASV_651_Acidimicrobiales,Low,0.085776928,0.023607451
+ASV_651_Acidimicrobiales,Medium,0,0
