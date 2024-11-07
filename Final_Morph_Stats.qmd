@@ -1,0 +1,436 @@
+---
+title: "Final Morph Stats"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Directory and libraries
+
+```{r}
+lizzy <- finalmorph_data #load dataset
+library(lme4) 
+library(car) 
+library(emmeans) 
+```
+
+# Check structure
+
+```{r}
+str(lizzy) #check structure of the data
+
+#some of these covariates are in the 'wrong format' according to R
+# e.g. salinity, root, etc. are considered 'characters' instead of 'factors'
+#lets make sure categorical covariates are considered as factors and not
+#letters or numbers:
+
+lizzy$salinity <- as.factor(lizzy$salinity)
+lizzy$sediment <- as.factor(lizzy$sediment)
+lizzy$root <- as.factor(lizzy$root)
+lizzy$jar_notnum <- as.factor(lizzy$jar_notnum)
+
+#check it worked
+str(lizzy)
+```
+
+
+# Significant models
+
+## Necrosis
+```{r}
+#fit model
+m1 <- lmer(necrosis ~ salinity*root*sediment + (1|jar_notnum), data=lizzy)
+
+#check assumption of homogeneity of variance
+plot(m1) #looks OK
+
+#re-fit model with Maximum Likelihood - best (less type 1 error) for obtaining p-values
+#default uses Restricted Maximum Likelihood (REML=true), so need REML=false
+m1a <- lmer(necrosis ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+Anova(m1a) #get p-values using Likelihood Ratio Tests, which follow a 
+           #Chi-square test-statistic distribution
+
+#Significant salinity x root interaction
+#need post-hoc contrasts
+
+emmeans(m1a, specs = pairwise ~ root|salinity, adjust='none')
+
+## So, there is no difference in necrosis between disrupted and intact roots
+## at any of the salinity levels, except for a trend of higher necrosis
+## in disrupted roots than intact roots under mid-salinity.
+
+emmeans(m1a, specs = pairwise ~ salinity|root, adjust='none')
+
+## Necrosis in plants with disrupted roots did not differ between salinity 
+## levels, but necrosis in intact plants was higher in the low salinity
+## treatment than the other 2.
+```
+
+## Leaf length
+```{r}
+## Pooling (ignoring) non-significant interaction terms does not really
+## change the outcome, so use the stuff above & repeat for other variables
+
+# SHOOT LENGTH
+m2 <- lmer(shoot_length ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+plot(m2)
+Anova(m2) 
+## significant effect of sediment
+em_length1 <- emmeans(m2, ~ sediment)
+summary(em_length1)
+```
+
+## Above-ground biomass
+```{r}
+# ABOVEGROUND BIOMASS
+m4 <- lmer(shoot_weight ~ salinity*root*sediment + (1|jar_notnum), data=lizzy, REML='F')
+plot(lizzy$shoot_weight)
+
+# removed outlier
+lizzy <- lizzy %>% 
+  filter(shoot_weight < 0.2)
+#not a good fit
+m4 %>% simulateResiduals %>% plot
+Anova(m4) 
+## significant interaction between salinity and sediment
+emmeans(m4, specs = pairwise ~ sediment|salinity, adjust='none')
+emmeans(m4, specs = pairwise ~ salinity|sediment, adjust='none')
+```
+
+## Below-ground biomass
+```{r}
+# BELOWGROUND BIOMASS
+m5 <- lmer(root_weight ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+
+Anova(m5)  
+## Significant effect of sediment
+em_sediment1 <- emmeans(m5, ~ sediment)
+summary(em_sediment1)
+```
+
+## Leaf number
+```{r}
+# Leaf Number
+m7 <- lmer(leaves ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+  
+plot(m7)
+m7 %>% simulateResiduals %>% plot
+
+Anova(m7) 
+## significant effect of salinity and sediment 
+em_num2 <- emmeans(m7, ~ salinity)
+em_num2
+em_num1 <- emmeans(m7,~sediment)
+em_num1
+```
+
+
+#Insignificant models
+
+## Leaf width
+```{r}
+# LEAF WIDTH
+m6 <- lmer(width ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+Anova(m6) 
+## not significant at all, no post hocs
+
+```
+
+## Root length
+```{r}
+# ROOT LENGTH
+m3 <- lmer(root_length ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+Anova(m3) 
+## not significant at all, no post hocs
+```
+
+## New leaves
+```{r}
+m8 <- lmer(new_shoots ~ salinity*root*sediment + (1|jar_notnum), 
+            data=lizzy, REML='F')
+Anova(m8) 
+## not significant
+```
+
+
+
+# Graphs for significant results
+
+## Necrosis
+```{r}
+NCmorph_data.sum <- summarySE(finalmorph_data, measurevar="necrosis", groupvars=c("salinity","root", "sediment", "f"))
+NCmorph_data.sum$f <- paste(NCmorph_data.sum$salinity,NCmorph_data.sum$root, NCmorph_data.sum$sediment)
+
+ # Calculate maximum leaf length for each group
+max_values <- finalmorph_data %>%
+ dplyr:: group_by(salinity, root, sediment, f) %>%
+dplyr::  summarize(max_necrosis = max(necrosis, na.rm=TRUE))
+
+# Merge max values into the summary dataframe
+NCmorph_data.sum <- merge(NCmorph_data.sum, max_values, by=c("salinity", "root", "sediment", "f"))
+
+#Plot
+ggplot(data=NCmorph_data.sum, aes(x=f, y=necrosis, fill=salinity)) + 
+  geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=necrosis-se, ymax=necrosis+se), width=0.5) +
+  theme_classic(base_size = 20) +
+  xlab("Treatment") + 
+  ylab("Necrosis (%)") + 
+  ggtitle("") +
+scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +   
+  scale_y_continuous(expand = c(0,0), limits = c(0, 100)) +
+  theme(axis.text= element_text(size=15, angle=90, vjust=0.5),
+        axis.title = element_text(size=18)) + 
+  scale_x_discrete(labels = c('S-R-','S+R-','S-R+', 'S+R+', 
+                              'S-R-','S+R-','S-R+', 'S+R+',
+                              'S-R-','S+R-','S-R+', 'S+R+'))
+
+```
+
+
+## Leaf no. (salinity)
+```{r}
+mean_number1 <- finalmorph_data %>%
+ dplyr :: group_by(salinity) %>%
+ dplyr:: summarise(mean_leaf_number = mean(leaves, na.rm = TRUE))
+
+print(mean_number)
+
+# View the results
+
+number_se1 <- finalmorph_data %>%
+ group_by(salinity) %>%
+ dplyr:: summarise(number = mean(leaves, na.rm = TRUE),
+    sd_number = sd(leaves, na.rm = TRUE),
+    n = n(),
+    se_number = sd_number / sqrt(n))
+
+# Graph for leaf number by salinity treatment
+pa <- ggplot(number_se1, aes(x = salinity, y = number, fill = salinity)) +
+  geom_bar(stat = "identity", show.legend = T, width = 0.75) +
+  geom_errorbar(aes(ymin=number-se_number, ymax=number+se_number), width=0.2) +
+scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +   
+  labs(title = "A)",
+       x = "Salinity Treatment",
+       y = "Mean Number of Leaves") +
+  ylim(0,2.7) +
+  scale_x_discrete(labels = c("Ambient", "Medium", "Low"))+
+  theme_classic() +
+theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pa
+```
+
+## Leaf no. (sediment)
+```{r}
+mean_number <- finalmorph_data %>%
+ dplyr :: group_by(sediment) %>%
+ dplyr:: summarise(mean_leaf_number = mean(leaves, na.rm = TRUE))
+
+print(mean_number)
+
+# View the results
+
+number_se <- finalmorph_data %>%
+ group_by(sediment) %>%
+ dplyr:: summarise(number = mean(leaves, na.rm = TRUE),
+    sd_number = sd(leaves, na.rm = TRUE),
+    n = n(),
+    se_number = sd_number / sqrt(n))
+
+# Graph for leaf number by sediment treatment
+pb <- ggplot(number_se, aes(x = sediment, y = number, fill = sediment)) +
+  geom_bar(stat = "identity", show.legend = T, width = 0.75) +
+  geom_errorbar(aes(ymin=number-se_number, ymax=number+se_number), width=0.2) +
+  scale_fill_brewer(palette = "Oranges", direction = -1, name = "Sediment", labels = c("Disrupted","Intact")) +
+  labs(title = "B)",
+       x = "Sediment Treatment",
+       y = "Mean Number of Leaves") +
+  ylim(0,2.75) +
+  theme_classic() +
+theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pb
+```
+
+## Leaf length (sediment) means graph
+```{r}
+# Calculate the mean shoot length for each sediment treatment
+leaf_length$sediment <-as.factor(leaf_length$sediment)
+leaf_length$salinity <-as.factor(leaf_length$salinity)
+leaf_length$root <-as.factor(leaf_length$root)
+str(leaf_length)
+
+mean_shoot_length1 <- finalmorph_data %>%
+  dplyr :: group_by(sediment) %>%
+  dplyr :: summarise(mean_shoot_length = mean(shoot_length, na.rm = TRUE))
+
+# View the results
+print(mean_shoot_length)
+mean_shoot_length1$mean_shoot_length <- as.numeric(mean_shoot_length1$mean_shoot_length)
+
+leaf_length_se1 <- finalmorph_data %>%
+ group_by(sediment) %>%
+ dplyr:: summarise(mean_shoot_length = mean(shoot_length, na.rm = TRUE),
+    sd_length = sd(shoot_length, na.rm = TRUE),
+    n = n(),
+    se_length = sd_length / sqrt(n))
+
+# Graph for emmeans of leaf length by sediment treatment
+pc <- ggplot(leaf_length_se1, aes(x = sediment, y = mean_shoot_length, fill = sediment)) +
+  geom_bar(stat="identity", show.legend=F, width = 0.75) +
+  geom_errorbar(aes(ymin=mean_shoot_length-se_length, ymax=mean_shoot_length+se_length), width=0.2) +
+  scale_fill_brewer(palette = "Oranges", direction = -1) +
+  ylim(0,12.5) +
+  labs(title = "B)",
+       x = "Sediment Treatment",
+       y = "Mean Leaf Length (cm)") +
+  theme_classic() +
+theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pc
+```
+
+## Leaf length (salinity) means graph
+```{r}
+# Calculate the mean shoot length for each sediment treatment
+leaf_length$sediment <-as.factor(leaf_length$sediment)
+leaf_length$salinity <-as.factor(leaf_length$salinity)
+leaf_length$root <-as.factor(leaf_length$root)
+str(leaf_length)
+
+mean_shoot_length <- finalmorph_data %>%
+  dplyr :: group_by(salinity) %>%
+  dplyr :: summarise(mean_shoot_length = mean(shoot_length, na.rm = TRUE))
+
+# View the results
+print(mean_shoot_length)
+mean_shoot_length$mean_shoot_length <- as.numeric(mean_shoot_length$mean_shoot_length)
+
+leaf_length_se <- finalmorph_data %>%
+ group_by(salinity) %>%
+ dplyr:: summarise(mean_shoot_length = mean(shoot_length, na.rm = TRUE),
+    sd_length = sd(shoot_length, na.rm = TRUE),
+    n = n(),
+    se_length = sd_length / sqrt(n))
+
+# Graph for emmeans of leaf length by sediment treatment
+pll <- ggplot(leaf_length_se, aes(x = salinity, y = mean_shoot_length, fill = salinity)) +
+  geom_bar(stat="identity", show.legend=T, width = 0.75) +
+  geom_errorbar(aes(ymin=mean_shoot_length-se_length, ymax=mean_shoot_length+se_length), width=0.2) +
+  scale_fill_brewer(palette = "Blues", direction = -1,name = "Salinity", labels = c("Ambient", "Medium", "Low")) +
+ylim(0,12.5) + 
+  scale_x_discrete(labels = c("Ambient", "Medium", "Low"))+
+  labs(title = "A)",
+       x = "Salinity Treatment",
+       y = "Mean Leaf Length (cm)") +
+  theme_classic() +
+theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pll
+
+leaf_length <- ggarrange(pll+pc)
+leaf_length
+```
+
+
+
+## Bg biomass (sediment) means graph
+```{r}
+mean_biom <- bg_biomass %>%
+ dplyr :: group_by(sediment) %>%
+ dplyr:: summarise(mean_biom = mean(root_weight, na.rm = TRUE))
+
+
+biom_se <- bg_biomass %>%
+ group_by(sediment) %>%
+ dplyr:: summarise(biom = mean(root_weight, na.rm = TRUE),
+    sd_biom = sd(root_weight, na.rm = TRUE),
+    n = n(),
+    se_biom = sd_biom / sqrt(n))
+
+# Graph for bg biomass by sediment treatment
+pd <- ggplot(biom_se, aes(x = sediment, y = biom, fill = sediment)) +
+  geom_bar(stat = "identity", show.legend = T, width = 0.75) +
+  geom_errorbar(aes(ymin=biom-se_biom, ymax=biom+se_biom), width=0.2) +
+  scale_fill_brewer(palette="Oranges",direction=-1,name = "Sediment") +   
+  labs(title = "B)",
+       x = "Sediment Treatment",
+       y = "Mean below-ground biomass (g)") +
+  ylim(0,0.22) +
+  theme_classic() +
+  theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pd
+```
+
+## Bg biomass (salinity) means graph
+```{r}
+mean_biom1 <- bg_biomass %>%
+ dplyr :: group_by(salinity) %>%
+ dplyr:: summarise(mean_biom = mean(root_weight, na.rm = TRUE))
+
+
+biom_se1 <- bg_biomass %>%
+ group_by(salinity) %>%
+ dplyr:: summarise(biom = mean(root_weight, na.rm = TRUE),
+    sd_biom = sd(root_weight, na.rm = TRUE),
+    n = n(),
+    se_biom = sd_biom / sqrt(n))
+
+# Graph for bg biomass by salinity treatment
+pbg <- ggplot(biom_se1, aes(x = salinity, y = biom, fill = salinity)) +
+  geom_bar(stat = "identity", show.legend = T, width = 0.75) +
+  geom_errorbar(aes(ymin=biom-se_biom, ymax=biom+se_biom), width=0.2) +
+  scale_fill_brewer(palette="Blues",direction=-1,name="Salinity", labels= c("Ambient", "Medium", "Low")) +   
+   scale_x_discrete(labels = c("Ambient", "Medium", "Low"))+
+  labs(title = "A)",
+       x = "Salinity Treatment",
+       y = "Mean below-ground biomass (g)") +
+  ylim(0,0.22) +
+  theme_classic() + 
+theme(axis.title = element_text(size = 12), axis.line = element_line(color = "black", linewidth = 0.3))
+pbg
+
+bgbio <- ggarrange(pbg+pd)
+bgbio
+```
+
+
+## Above-ground biomass
+```{r}
+mean_agb <-lizzy %>%
+ dplyr :: group_by(sediment) %>%
+ dplyr:: summarise(mean_biom = mean(root_weight, na.rm = TRUE))
+
+agb.sum <- summarySE(lizzy, measurevar="shoot_weight", groupvars=c("salinity","sediment"))
+agb.sum$f <-  agb.sum$f <- paste(agb.sum$salinity,agb.sum$sediment)
+
+# Graph for above-ground biomass by salinity and sediment treatment
+
+ggplot(agb.sum, aes(x = f, y = shoot_weight, fill = salinity)) +
+  geom_bar(stat = "identity", show.legend = T, width = 0.75) +
+  geom_errorbar(aes(ymin=shoot_weight-se, ymax=shoot_weight+se), width=0.2) +
+    scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +
+  labs(title = "",
+       x = "Sediment Treatment",
+       y = "Mean above-ground biomass (g)") +
+  theme_classic() +
+theme(axis.title = element_text(size = 14), axis.line = element_line(color = "black", linewidth = 0.3)) +   
+  scale_x_discrete(labels = c('Disrupted','Intact','Disrupted', 'Intact', 
+                             'Disrupted', 'Intact'))
+```
+
+
+
+## Wrapped plots
+```{r}
+############## group leaf number together and then group the other two response variables together ##########
+sed1 <- ggarrange(pa,pb)
+sed1
+
+sed2 <- ggarrange(pc+pd)
+sed2
+```

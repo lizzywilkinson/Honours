@@ -1,0 +1,239 @@
+---
+title: "Supplementary Figures"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+Load packages
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(Rmisc)
+library(RColorBrewer)
+library(dplyr)
+```
+
+# Probe measurements
+```{r}
+salinity <- probe_measurements
+
+salinity$date <- as.Date(salinity$date)
+shape_map <- c("A" = 0, "M" = 2, "Z" = 4)
+
+ggplot(salinity, aes(x = day, y = salinity, group = treatment, color = treatment)) +
+  geom_point(shape = 16, size = 3) +  # Use a single shape for all points
+  geom_line(linewidth = 1) +   
+  labs(x = "Day", y = "Salinity (ppt)", color = "Treatment") +
+  scale_color_brewer(palette = "Blues", direction = -1, 
+                     breaks = c("A", "M", "Z"),  
+                     labels = c("A", "M", "L")) + 
+  ggtitle("Salinity Probe Measurements over Time") +
+  theme_minimal() +
+  theme(axis.line = element_line(color = "black", linewidth = 0.5))
+```
+
+# Morph Graphs
+```{r}
+morph_data <- finalmorph_data
+
+morph_data$salinity <-as.factor(morph_data$salinity)
+morph_data$sediment <-as.factor(morph_data$sediment)
+morph_data$root <-as.factor(morph_data$root)
+morph_data$f <-as.factor(morph_data$f)
+```
+
+
+## 1 Leaf length
+```{r}
+# LEAF LENGTH
+SLmorph_data.sum <- summarySE(morph_data, measurevar="shoot_length", groupvars=c("salinity","root", "sediment", "f"))
+SLmorph_data.sum$f <- paste(SLmorph_data.sum$salinity,SLmorph_data.sum$root, SLmorph_data.sum$sediment)
+
+ # Calculate maximum leaf length for each group
+max_values <- morph_data %>%
+  group_by(salinity, root, sediment, f) %>%
+  summarize(max_shoot_length = max(shoot_length, na.rm=TRUE))
+
+# Merge max values into the summary dataframe
+SLmorph_data.sum <- merge(SLmorph_data.sum, max_values, by=c("salinity", "root", "sediment", "f"))
+
+#Plot
+p1 <- ggplot(data=SLmorph_data.sum, aes(x=f, y=shoot_length, fill=salinity)) + 
+  geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=shoot_length-se, ymax=shoot_length+se), width=0.5) +
+  theme_classic(base_size = 20) +
+  xlab("Treatment") + 
+  ylab("Length of longest live leaf (cm)") + 
+  ggtitle("A)") +
+  scale_fill_brewer(palette="Blues", direction=-1) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 15)) +
+  theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5),
+        axis.title.y = element_text(size=15)) + 
+   theme(legend.position = "none") +
+  scale_x_discrete(labels = c('S-R-','S-R+','S+R-', 'S+R+', 
+                              'S-R-','S-R+','S+R-', 'S+R+', 
+                              'S-R-','S-R+','S+R-', 'S+R+'))
+
+p1
+```
+
+## 2 Root length
+```{r}
+RLmorph_data.sum <- summarySE(morph_data, measurevar="root_length", groupvars=c("salinity","root", "sediment", "f"))
+ RLmorph_data.sum$f <- paste(RLmorph_data.sum$salinity,RLmorph_data.sum$root, RLmorph_data.sum$sediment)
+ 
+p2 <- ggplot(data=RLmorph_data.sum, aes(x=f, y=root_length, fill=salinity)) + 
+   geom_bar(stat="identity") +
+   geom_errorbar(aes(ymin=root_length-se, ymax=root_length+se), width=0.5) +
+   theme_classic(base_size = 20) +
+   xlab("Treatment") + ylab("Length of longest root (cm)") + 
+    scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +   
+   scale_y_continuous(expand = c(0, 0), limits = c(0, 8)) +
+   ggtitle("B)") +
+   theme(legend.position = "none",axis.text.x = element_text(size=15, angle=90, vjust=0.5))+ 
+   scale_x_discrete(labels = c('S-R+','S+R+','S-R-', 'S+R-', 
+                             'S-R+','S+R+','S-R-', 'S+R-', 
+                              'S-R+','S+R+','S-R-', 'S+R-'))
+  
+p2
+```
+
+## 3 Leaf width
+```{r}
+LWmorph_data.sum <- summarySE(morph_data, measurevar="width", groupvars=c("salinity","root", "sediment", "f"))
+LWmorph_data.sum$f <- paste(LWmorph_data.sum$salinity,LWmorph_data.sum$root, LWmorph_data.sum$sediment)
+ 
+p3 <- ggplot(data=LWmorph_data.sum, aes(x=f, y=width, fill=salinity)) + 
+   geom_bar(stat="identity") +
+   geom_errorbar(aes(ymin=width-se, ymax=width+se), width=0.5) +
+   theme_classic(base_size = 20) +
+   xlab("Treatment") + ylab("Leaf width (mm)") + 
+   ggtitle("A)") +
+   scale_fill_brewer(palette="Blues",direction=-1, name="Salinity", labels=c("Ambient", "Medium", "Low")) +   
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 4)) +
+   theme(legend.position = "none") +
+   theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5))+ 
+   scale_x_discrete(labels = c('S-R+','S+R+','S-R-', 'S+R-', 
+                             'S-R+','S+R+','S-R-', 'S+R-', 
+                              'S-R+','S+R+','S-R-', 'S+R-'))
+ 
+
+p3
+pub <- ggarrange(p3,p2)
+pub
+```
+
+## 4 Leaf number
+```{r}
+LNmorph_data.sum <- summarySE(morph_data, measurevar="leaves", groupvars=c("salinity","root", "sediment", "f"))
+LNmorph_data.sum$f <- paste(LNmorph_data.sum$salinity,LNmorph_data.sum$root, LNmorph_data.sum$sediment)
+ 
+p4 <- ggplot(data=LNmorph_data.sum, aes(x=f, y=leaves, fill=salinity)) + 
+   geom_bar(stat="identity") +
+   geom_errorbar(aes(ymin=leaves-se, ymax=leaves+se), width=0.5) +
+   theme_classic(base_size = 20) +
+   xlab("Treatment") + ylab("Number of leaves") + 
+   ggtitle("D)") +
+   scale_fill_brewer(palette="Blues",direction=-1, name="Salinity", labels=c("Ambient", "Medium", "Low")) +   
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 4)) +
+   theme(legend.position = "none") +
+   theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5))+ 
+   scale_x_discrete(labels = c('S-R+','S+R+','S-R-', 'S+R-', 
+                             'S-R+','S+R+','S-R-', 'S+R-', 
+                              'S-R+','S+R+','S-R-', 'S+R-'))
+p4
+```
+
+## 5 Aboveground biomass
+```{r}
+ ABGmorph_data.sum <- summarySE(morph_data, measurevar="shoot_weight", groupvars=c("salinity","root", "sediment", "f"))
+ ABGmorph_data.sum$f <- paste(ABGmorph_data.sum$salinity,ABGmorph_data.sum$root, ABGmorph_data.sum$sediment)
+ 
+p5 <- ggplot(data=ABGmorph_data.sum, aes(x=f, y=shoot_weight, fill=salinity)) + 
+   geom_bar(stat="identity") +
+   geom_errorbar(aes(ymin=shoot_weight-se, ymax=shoot_weight+se), width=0.5, size = 0.3) +
+   theme_classic(base_size = 20) +
+   xlab("Treatment") + ylab("Aboveground biomass (g)") + 
+     scale_fill_brewer(palette="Blues",direction=-1) +
+   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.07)) +
+   theme(legend.position = "none") + 
+  ggtitle("E)") +
+   theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5))+ 
+   scale_x_discrete(labels = c('S-R+','S+R+','S-R-', 'S+R-', 
+                             'S-R+','S+R+','S-R-', 'S+R-', 
+                              'S-R+','S+R+','S-R-', 'S+R-'))
+p5
+```
+
+## 6 Belowground biomass
+```{r}
+BLGmorph_data.sum <- summarySE(morph_data, measurevar="root_weight", groupvars=c("salinity","root", "sediment", "f"))
+ BLGmorph_data.sum$f <- paste(BLGmorph_data.sum$salinity,BLGmorph_data.sum$root, BLGmorph_data.sum$sediment)
+ 
+p6 <- ggplot(data=BLGmorph_data.sum, aes(x=f, y=root_weight, fill=salinity)) + 
+   geom_bar(stat="identity") +
+   geom_errorbar(aes(ymin=root_weight-se, ymax=root_weight+se), width=0.5) +
+   theme_classic(base_size = 20) +
+   theme(legend.position = "none") + 
+   xlab("Treatment") + ylab("Belowground biomass (g)") + 
+   ggtitle("F)") +
+   scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +   
+   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.3)) +
+   theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5))+ 
+   scale_x_discrete(labels = c('S-R+','S+R+','S-R-', 'S+R-', 
+                             'S-R+','S+R+','S-R-', 'S+R-', 
+                              'S-R+','S+R+','S-R-', 'S+R-'))
+p6
+```
+
+## 7 Necrosis
+```{r}
+NCmorph_data.sum <- summarySE(finalmorph_data, measurevar="necrosis", groupvars=c("salinity","root", "sediment", "f"))
+NCmorph_data.sum$f <- paste(NCmorph_data.sum$salinity,NCmorph_data.sum$root, NCmorph_data.sum$sediment)
+
+ # Calculate maximum leaf length for each group
+max_values <- finalmorph_data %>%
+ dplyr:: group_by(salinity, root, sediment, f) %>%
+dplyr::  summarize(max_necrosis = max(necrosis, na.rm=TRUE))
+
+# Merge max values into the summary dataframe
+NCmorph_data.sum <- merge(NCmorph_data.sum, max_values, by=c("salinity", "root", "sediment", "f"))
+
+#Plot
+p7 <- ggplot(data=NCmorph_data.sum, aes(x=f, y=necrosis, fill=salinity)) + 
+  geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=necrosis-se, ymax=necrosis+se), width=0.5) +
+  theme_classic(base_size = 20) +
+  xlab("Treatment") + 
+  ylab("Necrosis (%)") + 
+  ggtitle("G)") +
+scale_fill_brewer(palette="Blues",direction=-1, name = "Salinity", labels = c("Ambient", "Medium", "Low")) +   
+  scale_y_continuous(expand = c(0,0), limits = c(0, 60)) +
+  theme(axis.text.x = element_text(size=15, angle=90, vjust=0.5),
+        axis.title.y = element_text(size=15)) + 
+  scale_x_discrete(labels = c('S-R-','S+R-','S-R+', 'S+R+', 
+                              'S-R-','S+R-','S-R+', 'S+R+',
+                              'S-R-','S+R-','S-R+', 'S+R+'))
+
+p7
+```
+
+
+# Wrapped plots
+```{r}
+plots1 <- ggarrange(p1+p2)
+plots1
+plots2 <- ggarrange(p3+p4)
+plots2
+plots3 <-ggarrange(p5+p6)
+plots3
+p7
+```
+
+
+
+
+
